@@ -6,17 +6,19 @@
 //
 
 import SwiftUI
-
+import CoreLocation
 
 
 
 
 struct ContentView: View {
+    var timer = Timer()
     let url = URL(string:"http://alecserv.com")!
     let DEBUG = true
     @State private var connected = Bool(false)
     @State private var user_ID = ""
     @State private var HTTP_DEBUG = "AWAITING VALUE"
+    
     var body: some View {
         ZStack{
             Color.black.ignoresSafeArea()
@@ -72,6 +74,20 @@ struct ContentView: View {
         }
         dataTask.resume()
     }
+    
+    func timerHandler() {
+        
+    }
+        
+    func startTimer() {
+        timer.invalidate()
+        timer = Timer.scheduledTimer(withTimeInterval: 60.0, repeats: true, block: {_ in
+            timerHandler()
+        })
+        
+    }
+
+    
 }
 
 struct ContentView_Previews: PreviewProvider {
