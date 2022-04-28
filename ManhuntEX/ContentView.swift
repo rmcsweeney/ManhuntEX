@@ -12,12 +12,14 @@ import CoreLocation
 
 
 struct ContentView: View {
-    var timer = Timer()
+    @State var timer: Timer!
     let url = URL(string:"http://alecserv.com")!
     let DEBUG = true
+    let locationManager = CLLocationManager()
     @State private var connected = Bool(false)
     @State private var user_ID = ""
     @State private var HTTP_DEBUG = "AWAITING VALUE"
+    
     
     var body: some View {
         ZStack{
@@ -39,6 +41,9 @@ struct ContentView: View {
                     .font(.caption)
                     .foregroundColor(Color.white).padding()
                 if (DEBUG){
+                    Button(action: timerHandler){
+                        Text(" Manually send location ")
+                    }.disabled(!connected).background(Color.white)
                     Text(HTTP_DEBUG)
                         .foregroundColor(Color.white)
                 }
@@ -64,6 +69,7 @@ struct ContentView: View {
             else if let data = data {
                 HTTP_DEBUG = String(decoding: data, as: UTF8.self)
                 connected = true
+                startTimer()
                 return
             }
             else {
@@ -77,6 +83,35 @@ struct ContentView: View {
     
     func timerHandler() {
         
+        var request = URLRequest(url: url)
+        locationManager.requestLocation()
+        let loc = locationManager.location?.coordinate
+        //let requestData: (Double, Double) = (Double(loc?.latitude ?? 0), Double(loc?.longitude ?? 0))
+        let lat: String = String(format: "%f", Double(loc?.latitude ?? -1))
+        let longi: String = String(format: "%f", loc?.longitude ?? -1)
+        let requestData = lat + " " + longi
+        request.httpMethod = "POST"
+        request.httpBody = requestData.data(using: .utf8)
+        
+        let dataTask = URLSession.shared.dataTask(with: request) { (data, response, error) in
+            if error != nil {
+                connected = false
+                HTTP_DEBUG = "HTTP error"
+                return
+            }
+            else if let data = data {
+                HTTP_DEBUG = String(decoding: data, as: UTF8.self)
+                connected = true
+                startTimer()
+                return
+            }
+            else {
+                HTTP_DEBUG = "Unexpected error"
+                connected = false
+                return
+            }
+        }
+        dataTask.resume()
     }
         
     func startTimer() {
@@ -84,9 +119,12 @@ struct ContentView: View {
         timer = Timer.scheduledTimer(withTimeInterval: 60.0, repeats: true, block: {_ in
             timerHandler()
         })
+        locationManager.allowsBackgroundLocationUpdates = true
+        locationManager.desiredAccuracy = kCLLocationAccuracyNearestTenMeters
         
     }
-
+    
+    
     
 }
 
