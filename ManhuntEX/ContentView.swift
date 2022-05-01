@@ -12,8 +12,9 @@ import Foundation
 
 
 struct ContentView: View {
-    @State var timer: Timer!
-    let url = URL(string:"http://alecserv.com")!
+    //@State var timer: Timer!
+    let url = URL(string:"http://manhunt.alecn.net/loc/")!
+    let urlString = "http://manhunt.alecn.net/loc/"
     let DEBUG = true
     @StateObject var locationManager = LocationManager()
     @State private var connected = Bool(false)
@@ -23,6 +24,13 @@ struct ContentView: View {
     @State private var sent_longitude = "WAITING TO SEND A LONGITUDE"
     @State private var DEBUG_LAT = " Awaiting "
     @State private var DEBUG_LONGI = " Awaiting "
+    @State private var curLat = ""
+    @State private var curLong = "1"
+    @State private var started = false
+    @State private var timerStarted = false
+    @State private var interrupts = 0
+    
+    let timer = Timer.publish(every: 15, tolerance: 3, on: .main, in: .common).autoconnect()
     
     init(){
         
@@ -42,11 +50,23 @@ struct ContentView: View {
                     .fixedSize()
                 Button(action: connectToServer) {
                     Text(" Connect to Server ")
-                }.disabled(connected || user_ID.isEmpty)
+                }.disabled(user_ID.isEmpty || curLong.elementsEqual("nan"))
                     .background(Color.white)
                 Text("Connection Status: " + (connected ? "Connected" : "Not Connected"))
                     .font(.caption)
                     .foregroundColor(Color.white).padding()
+                Button(action: testLocation){
+                    Text(" Locally update location ")
+                }
+                Text("Lat: " + DEBUG_LAT).foregroundColor(Color.white)
+                Text("Long: " + DEBUG_LONGI).foregroundColor(Color.white)
+                Text("Timer has updated: " + String(interrupts) + " times").foregroundColor(Color.white).onReceive(timer) {
+                    _ in
+                    if (connected){
+                        connectToServer()
+                    }
+                    interrupts += 1
+                }
                 if (DEBUG){
                     Button(action: timerHandler){
                         Text(" Manually send location ")
@@ -55,11 +75,6 @@ struct ContentView: View {
                         .foregroundColor(Color.white)
                     Text(sent_latitude).foregroundColor (Color.white)
                     Text(sent_longitude).foregroundColor(Color.white)
-                    Button(action: testLocation){
-                        Text(" Locally update location ")
-                    }
-                    Text("Lat: " + DEBUG_LAT).foregroundColor(Color.white)
-                    Text("Long: " + DEBUG_LONGI).foregroundColor(Color.white)
                 }
             }
                 //.frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -69,19 +84,30 @@ struct ContentView: View {
     }
     
     func testLocation(){
-        locationManager.startUpdating()
+        if (!started){
+            locationManager.startUpdating()
+            started = true
+        }
         locationManager.requestLocation()
         let loc = locationManager.lastKnownLocation?.coordinate
         DEBUG_LAT = String(format: "%f", Double(loc?.latitude ?? -1))
+        curLat = DEBUG_LAT
         DEBUG_LONGI = String(format: "%f", loc?.longitude ?? -1)
+        curLong = DEBUG_LONGI
     }
     
     func connectToServer(){
-        var request = URLRequest(url: url)
-        let requestData = user_ID.data(using: .utf8)
-        
+        //locationManager.manager.requestWhenInUseAuthorization()
+        testLocation()
+        //while (curLong.elementsEqual("nan")){
+        //    testLocation()
+        //}
+        let urlConn = URL(string:"http://manhunt.alecn.net/loc/" + user_ID + "," + curLat +  "," + curLong)!
+        var request = URLRequest(url: urlConn)
+        let requestData = user_ID + ",0,0"//user_ID.data(using: .utf8)
+        //requestData = user_ID + ",0,0"
         request.httpMethod = "POST"
-        request.httpBody = requestData
+        request.httpBody = requestData.data(using: .utf8)
         
         let dataTask = URLSession.shared.dataTask(with: request) { (data, response, error) in
             if error != nil {
@@ -92,7 +118,9 @@ struct ContentView: View {
             else if let data = data {
                 HTTP_DEBUG = String(decoding: data, as: UTF8.self)
                 connected = true
-                startTimer()
+//                if (!timerStarted){
+//                    startTimer()
+//                }
                 return
             }
             else {
@@ -112,7 +140,7 @@ struct ContentView: View {
         //let requestData: (Double, Double) = (Double(loc?.latitude ?? 0), Double(loc?.longitude ?? 0))
         let lat: String = String(format: "%f", Double(loc?.latitude ?? -1))
         let longi: String = String(format: "%f", loc?.longitude ?? -1)
-        let requestData = lat + " " + longi
+        let requestData = user_ID + "," + lat + "," + longi
         request.httpMethod = "POST"
         request.httpBody = requestData.data(using: .utf8)
         
@@ -125,7 +153,9 @@ struct ContentView: View {
             else if let data = data {
                 HTTP_DEBUG = String(decoding: data, as: UTF8.self)
                 connected = true
-                startTimer()
+                if (!timerStarted){
+                    startTimer()
+                }
                 return
             }
             else {
@@ -139,9 +169,10 @@ struct ContentView: View {
         
     func startTimer() {
         //timer.invalidate()
-        timer = Timer.scheduledTimer(withTimeInterval: 60.0, repeats: true, block: {_ in
-            timerHandler()
-        })
+        //timer = Timer.scheduledTimer(withTimeInterval: 15.0, repeats: true, block: {_ in
+            connectToServer()
+        //})
+        timerStarted = true
     }
 
 }
@@ -163,7 +194,7 @@ struct ContentView_Previews: PreviewProvider {
 
 
 class LocationManager: NSObject, CLLocationManagerDelegate, ObservableObject {
-    private let manager = CLLocationManager()
+    public let manager = CLLocationManager()
     @Published var lastKnownLocation: CLLocation?
     
     func startUpdating() {
