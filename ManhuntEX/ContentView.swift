@@ -15,7 +15,7 @@ struct ContentView: View {
     //@State var timer: Timer!
     let url = URL(string:"http://manhunt.alecn.net/loc/")!
     let urlString = "http://manhunt.alecn.net/loc/"
-    let DEBUG = true
+    let DEBUG = false
     @StateObject var locationManager = LocationManager()
     @State private var connected = Bool(false)
     @State private var user_ID = ""
