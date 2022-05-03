@@ -45,9 +45,13 @@ struct ContentView: View {
                     .fontWeight(.heavy)
                     .foregroundColor(Color.white)
                             .padding()
-                TextField(" Enter Identification Code ", text: $user_ID)
-                    .background()
-                    .fixedSize()
+                if #available(iOS 15.0, *) {
+                    TextField(" Enter Identification Code ", text: $user_ID)
+                        .background()
+                        .fixedSize()
+                } else {
+                    TextField(" Enter Identification Code ", text: $user_ID)
+                }
                 Button(action: connectToServer) {
                     Text(" Connect to Server ")
                 }.disabled(user_ID.isEmpty || curLong.elementsEqual("nan"))
